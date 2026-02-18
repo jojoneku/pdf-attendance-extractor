@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Attendance Extractor</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <!-- Prevent browser from caching/restoring page state -->
+    <meta http-equiv="Cache-Control" content="no-store" />
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 PDF Attendance Extractor</h1>
+            <p class="subtitle">Upload attendance PDFs, preview extracted data, export to Excel or Google Sheets.</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section">
+            <div id="dropZone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <span class="drop-icon">📁</span>
+                    <p>Drag &amp; drop PDF files here</p>
+                    <p class="drop-hint">or click to browse</p>
+                </div>
+                <input type="file" id="fileInput" multiple accept=".pdf" hidden />
+            </div>
+            <div id="fileList" class="file-list" hidden>
+                <h3>Selected Files (<span id="fileCount">0</span>)</h3>
+                <ul id="fileListItems"></ul>
+                <button id="clearBtn" class="btn btn-secondary">Clear All</button>
+            </div>
+            <button id="extractBtn" class="btn btn-primary" disabled>Extract Data</button>
+        </section>
+
+        <!-- Optional Defaults Panel (shown after extraction) -->
+        <section id="defaultsPanel" class="defaults-panel">
+            <h3>📝 Optional Defaults <span class="defaults-hint">(applied to all rows on export)</span></h3>
+            <div class="defaults-grid">
+                <div class="field-group">
+                    <label for="defaultEmail">Email</label>
+                    <input type="email" id="defaultEmail" placeholder="Leave blank if N/A" />
+                </div>
+                <div class="field-group">
+                    <label for="defaultBeneficiary">Beneficiary</label>
+                    <select id="defaultBeneficiary">
+                        <option value="">— None —</option>
+                        <option value="Youth">Youth</option>
+                        <option value="Educator">Educator</option>
+                        <option value="Parent">Parent</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="defaultAgeRange">Age Range</label>
+                    <select id="defaultAgeRange">
+                        <option value="">— None —</option>
+                        <option value="15-20">15-20</option>
+                        <option value="21-25">21-25</option>
+                        <option value="26-30">26-30</option>
+                        <option value="31-35">31-35</option>
+                        <option value="Over 35">Over 35</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="defaultAffiliationType">Affiliation Type</label>
+                    <select id="defaultAffiliationType">
+                        <option value="">— None —</option>
+                        <option value="School">School</option>
+                        <option value="Community">Community</option>
+                        <option value="Workplace">Workplace</option>
+                        <option value="University">University</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="defaultAffiliationName">Affiliation Name</label>
+                    <input type="text" id="defaultAffiliationName" placeholder="e.g. University of Bohol" />
+                </div>
+            </div>
+        </section>
+
+        <!-- Status Section -->
+        <div id="statusBar" class="status-bar">
+            <div class="spinner" id="spinner"></div>
+            <span id="statusText">Processing...</span>
+        </div>
+
+        <!-- Errors Section -->
+        <div id="errorsSection" class="errors-section">
+            <h3>⚠️ Warnings</h3>
+            <ul id="errorsList"></ul>
+        </div>
+
+        <!-- Preview Section -->
+        <section id="previewSection" class="preview-section">
+            <div class="preview-header">
+                <h2>Preview (<span id="totalStudents">0</span> records)</h2>
+                <div class="export-buttons">
+                    <button id="exportExcelBtn" class="btn btn-success">⬇ Download Excel</button>
+                    <button id="exportGsheetBtn" class="btn btn-google">📊 Send to Google Sheets</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table id="previewTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Full Name</th>
+                            <th>Gender</th>
+                            <th>Source File</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination-bar">
+                <span id="paginationInfo" class="pagination-info"></span>
+                <div class="pagination-actions">
+                    <button id="loadMoreBtn" class="btn btn-secondary" style="display:none;">Load Next 100</button>
+                    <button id="loadAllBtn" class="btn btn-secondary" style="display:none;">Load All</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Google Sheets Modal -->
+        <div id="gsheetModal" class="modal">
+            <div class="modal-content">
+                <h3>Export to Google Sheets</h3>
+                <label for="sheetName">Spreadsheet Name</label>
+                <input type="text" id="sheetName" value="Attendance Export" />
+                <label for="worksheetName">Worksheet Name</label>
+                <input type="text" id="worksheetName" value="Sheet1" />
+                <div class="modal-actions">
+                    <button id="gsheetCancelBtn" class="btn btn-secondary">Cancel</button>
+                    <button id="gsheetConfirmBtn" class="btn btn-google">Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
