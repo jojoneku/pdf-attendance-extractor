@@ -9,6 +9,7 @@ by header text (case-insensitive, partial match).
 from __future__ import annotations
 
 import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -184,17 +185,24 @@ def extract_from_pdf(file_path: str | Path) -> ExtractionResult:
 
 def extract_batch(file_paths: list[str | Path]) -> list[ExtractionResult]:
     """
-    Extract student records from multiple PDF files.
+    Extract student records from multiple PDF files in parallel.
+
+    Uses a process pool to parse PDFs concurrently, which is significantly
+    faster for large batches since pdfplumber is CPU-bound.
 
     Args:
         file_paths: List of paths to PDF files.
 
     Returns:
-        List of ExtractionResult, one per file.
+        List of ExtractionResult, one per file (order preserved).
     """
-    results: list[ExtractionResult] = []
-    for fp in file_paths:
-        results.append(extract_from_pdf(fp))
+    if len(file_paths) <= 1:
+        return [extract_from_pdf(fp) for fp in file_paths]
+
+    # Cap workers to file count or CPU count (whichever is smaller)
+    max_workers = min(len(file_paths), os.cpu_count() or 4)
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(extract_from_pdf, file_paths))
     return results
 
 

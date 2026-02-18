@@ -37,12 +37,30 @@ const defaultAgeRange = document.getElementById("defaultAgeRange");
 const defaultAffiliationType = document.getElementById("defaultAffiliationType");
 const defaultAffiliationName = document.getElementById("defaultAffiliationName");
 
+// Dedupe toggle
+const dedupeToggle = document.getElementById("dedupeToggle");
+
 // ── State ─────────────────────────────────────────────────────────
 let selectedFiles = [];
 let extractedData = null; // holds the last extraction response data
 let flatStudents = [];    // flattened array for pagination
 let displayedCount = 0;   // how many rows currently rendered
 const PAGE_SIZE = 100;    // rows per page in preview
+
+/**
+ * Return the active student list — deduplicated when the toggle is on.
+ * Deduplication keeps the first occurrence of each full_name (case-insensitive).
+ */
+function activeStudents() {
+    if (!dedupeToggle.checked) return flatStudents;
+    const seen = new Set();
+    return flatStudents.filter((s) => {
+        const key = s.full_name.toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
 
 // ── Visibility helpers (CSS class-based, immune to browser cache restore) ─────
 function show(el) { el.classList.add("visible"); }
@@ -230,17 +248,19 @@ function renderPreview(data, total) {
     // Render first page
     renderNextPage();
 
-    totalStudents.textContent = total.toLocaleString();
+    const list = activeStudents();
+    totalStudents.textContent = list.length.toLocaleString();
     updatePaginationInfo();
     show(previewSection);
 }
 
 function renderNextPage() {
-    const end = Math.min(displayedCount + PAGE_SIZE, flatStudents.length);
+    const list = activeStudents();
+    const end = Math.min(displayedCount + PAGE_SIZE, list.length);
     const fragment = document.createDocumentFragment();
 
     for (let i = displayedCount; i < end; i++) {
-        const s = flatStudents[i];
+        const s = list[i];
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${i + 1}</td>
@@ -260,15 +280,16 @@ function updatePaginationInfo() {
     const info = document.getElementById("paginationInfo");
     const loadMoreBtn = document.getElementById("loadMoreBtn");
     const loadAllBtn = document.getElementById("loadAllBtn");
+    const list = activeStudents();
 
     if (info) {
-        info.textContent = `Showing ${displayedCount.toLocaleString()} of ${flatStudents.length.toLocaleString()} records`;
+        info.textContent = `Showing ${displayedCount.toLocaleString()} of ${list.length.toLocaleString()} records`;
     }
     if (loadMoreBtn) {
-        loadMoreBtn.style.display = displayedCount < flatStudents.length ? "inline-flex" : "none";
+        loadMoreBtn.style.display = displayedCount < list.length ? "inline-flex" : "none";
     }
     if (loadAllBtn) {
-        loadAllBtn.style.display = (displayedCount < flatStudents.length && flatStudents.length <= 50000) ? "inline-flex" : "none";
+        loadAllBtn.style.display = (displayedCount < list.length && list.length <= 50000) ? "inline-flex" : "none";
     }
 }
 
@@ -290,6 +311,25 @@ function getDefaults() {
     };
 }
 
+/**
+ * Return export-ready data, respecting the dedupe toggle.
+ * When dedupe is on, filters students within each file result so only the
+ * first occurrence of each full_name (case-insensitive) is kept globally.
+ */
+function getExportData() {
+    if (!dedupeToggle.checked) return extractedData;
+    const seen = new Set();
+    return extractedData.map((fileResult) => ({
+        ...fileResult,
+        students: fileResult.students.filter((s) => {
+            const key = buildFullName(s).toLowerCase().trim();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }),
+    }));
+}
+
 // ── Excel Export ──────────────────────────────────────────────────
 
 exportExcelBtn.addEventListener("click", async () => {
@@ -299,14 +339,15 @@ exportExcelBtn.addEventListener("click", async () => {
         return;
     }
 
-    console.log(`[excel] Exporting ${extractedData.length} file result(s)...`);
+    const exportData = getExportData();
+    console.log(`[excel] Exporting ${exportData.length} file result(s)...`);
     showStatus("Generating Excel file...");
 
     try {
         const res = await fetch("/api/export/excel", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: extractedData, ...getDefaults() }),
+            body: JSON.stringify({ data: exportData, ...getDefaults() }),
         });
 
         console.log(`[excel] Response: ${res.status} ${res.statusText}`);
@@ -355,11 +396,12 @@ gsheetConfirmBtn.addEventListener("click", async () => {
     showStatus("Exporting to Google Sheets...");
 
     try {
+        const exportData = getExportData();
         const res = await fetch("/api/export/gsheet", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                data: extractedData,
+                data: exportData,
                 spreadsheet_name: sheetName,
                 worksheet_name: tabName,
                 ...getDefaults(),
@@ -394,13 +436,14 @@ document.getElementById("loadMoreBtn").addEventListener("click", () => {
 });
 
 document.getElementById("loadAllBtn").addEventListener("click", () => {
-    showStatus(`Rendering all ${flatStudents.length.toLocaleString()} rows…`);
+    const list = activeStudents();
+    showStatus(`Rendering all ${list.length.toLocaleString()} rows…`);
     // Render in batches to avoid freezing the browser
     function renderBatch() {
-        const batchEnd = Math.min(displayedCount + 500, flatStudents.length);
+        const batchEnd = Math.min(displayedCount + 500, list.length);
         const fragment = document.createDocumentFragment();
         for (let i = displayedCount; i < batchEnd; i++) {
-            const s = flatStudents[i];
+            const s = list[i];
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${i + 1}</td>
@@ -414,14 +457,26 @@ document.getElementById("loadAllBtn").addEventListener("click", () => {
         displayedCount = batchEnd;
         updatePaginationInfo();
 
-        if (displayedCount < flatStudents.length) {
-            showStatus(`Rendering… ${displayedCount.toLocaleString()} / ${flatStudents.length.toLocaleString()}`);
+        if (displayedCount < list.length) {
+            showStatus(`Rendering… ${displayedCount.toLocaleString()} / ${list.length.toLocaleString()}`);
             requestAnimationFrame(renderBatch);
         } else {
             hideStatus();
         }
     }
     requestAnimationFrame(renderBatch);
+});
+
+// ── Dedupe Toggle ────────────────────────────────────────────────
+dedupeToggle.addEventListener("change", () => {
+    if (!flatStudents.length) return;
+    // Re-render from scratch with current toggle state
+    previewBody.innerHTML = "";
+    displayedCount = 0;
+    renderNextPage();
+    const list = activeStudents();
+    totalStudents.textContent = list.length.toLocaleString();
+    updatePaginationInfo();
 });
 // ── UI Helpers ────────────────────────────────────────────────────
 
