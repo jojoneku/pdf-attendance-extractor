@@ -48,6 +48,23 @@ let displayedCount = 0;   // how many rows currently rendered
 const PAGE_SIZE = 100;    // rows per page in preview
 
 /**
+ * Collect the column mapping config from the UI inputs.
+ * Returns an object like { lastname: ["lastname", "last name"], ... }
+ */
+function getColumnConfig() {
+    function split(input) {
+        return input.value.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+    }
+    return {
+        lastname: split(colLastname),
+        firstname: split(colFirstname),
+        middlename: split(colMiddlename),
+        extension: split(colExtension),
+        gender: split(colGender),
+    };
+}
+
+/**
  * Return the active student list — deduplicated when the toggle is on.
  * Deduplication keeps the first occurrence of each full_name (case-insensitive).
  */
@@ -162,6 +179,9 @@ extractBtn.addEventListener("click", async () => {
     for (const f of selectedFiles) {
         formData.append("files", f);
     }
+
+    // Attach column mapping config
+    formData.append("column_config", JSON.stringify(getColumnConfig()));
 
     try {
         console.log(`[upload] Sending ${selectedFiles.length} file(s)...`);

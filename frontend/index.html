@@ -30,6 +30,34 @@
                 <ul id="fileListItems"></ul>
                 <button id="clearBtn" class="btn btn-secondary">Clear All</button>
             </div>
+
+            <!-- Column Mapping Configuration -->
+            <details id="columnConfig" class="column-config">
+                <summary>⚙️ Column Mapping <span class="config-hint">(customise which PDF headers map to each field)</span></summary>
+                <div class="column-config-grid">
+                    <div class="config-field">
+                        <label for="colLastname">Last Name headers</label>
+                        <input type="text" id="colLastname" value="lastname, last name, surname" placeholder="Comma-separated header texts" />
+                    </div>
+                    <div class="config-field">
+                        <label for="colFirstname">First Name headers</label>
+                        <input type="text" id="colFirstname" value="firstname, first name, given name" placeholder="Comma-separated header texts" />
+                    </div>
+                    <div class="config-field">
+                        <label for="colMiddlename">Middle Name headers</label>
+                        <input type="text" id="colMiddlename" value="middlename, middle name, mi, m.i." placeholder="Comma-separated header texts" />
+                    </div>
+                    <div class="config-field">
+                        <label for="colExtension">Extension headers</label>
+                        <input type="text" id="colExtension" value="extension, ext, ext., name extension, suffix" placeholder="Comma-separated header texts" />
+                    </div>
+                    <div class="config-field">
+                        <label for="colGender">Gender headers</label>
+                        <input type="text" id="colGender" value="gender, sex" placeholder="Comma-separated header texts" />
+                    </div>
+                </div>
+            </details>
+
             <button id="extractBtn" class="btn btn-primary" disabled>Extract Data</button>
         </section>
 

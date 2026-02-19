@@ -7,6 +7,7 @@ and exporting to Excel or Google Sheets.
 
 from __future__ import annotations
 
+import json as _json
 import logging
 import os
 import shutil
@@ -14,7 +15,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 # ── Logging setup ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -111,13 +112,32 @@ async def root():
 
 
 @app.post("/api/upload", response_model=ExtractionResponse)
-async def upload_and_extract(files: list[UploadFile] = File(...)):
+async def upload_and_extract(
+    files: list[UploadFile] = File(...),
+    column_config: str | None = Form(None),
+):
     """
     Upload one or more PDF files, extract attendance data, and return a preview.
 
     Combines upload + extraction into a single step for convenience.
+
+    Args:
+        files: PDF files to process.
+        column_config: Optional JSON string mapping canonical field names
+            (lastname, firstname, middlename, extension, gender) to lists
+            of header text variants to match in the PDF tables.
     """
     log.info(f"[UPLOAD] Received {len(files)} file(s)")
+
+    # Parse optional column mapping
+    custom_columns: dict[str, list[str]] | None = None
+    if column_config:
+        try:
+            custom_columns = _json.loads(column_config)
+            log.info(f"[UPLOAD] Custom column config: {custom_columns}")
+        except Exception as e:
+            log.warning(f"[UPLOAD] Invalid column_config JSON, ignoring: {e}")
+            custom_columns = None
 
     if not files:
         log.warning("[UPLOAD] No files provided")
@@ -149,7 +169,7 @@ async def upload_and_extract(files: list[UploadFile] = File(...)):
 
     # Extract
     log.info(f"[EXTRACT] Starting extraction on {len(saved_paths)} PDF(s)...")
-    results = extract_batch(saved_paths)
+    results = extract_batch(saved_paths, columns=custom_columns)
     response_data = [_to_response_model(r) for r in results]
     total = sum(len(r.students) for r in response_data)
 

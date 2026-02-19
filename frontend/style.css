@@ -134,6 +134,59 @@ header h1 {
     font-size: 0.9rem;
 }
 
+/* ── Column Config ─────────────────────────────────────────────── */
+
+.column-config {
+    width: 100%;
+    max-width: 600px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 0.75rem 1.25rem;
+    box-shadow: var(--shadow);
+    font-size: 0.9rem;
+}
+
+.column-config summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text);
+    user-select: none;
+    list-style: revert;
+}
+
+.column-config summary:hover {
+    color: var(--primary);
+}
+
+.config-hint {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.column-config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem 1rem;
+    margin-top: 0.75rem;
+}
+
+.config-field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+
+.config-field input {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.82rem;
+}
+
 /* ── Buttons ───────────────────────────────────────────────────── */
 
 .btn {

@@ -18,13 +18,16 @@ import pdfplumber
 # ---------------------------------------------------------------------------
 # Target columns we want to extract (lowercase normalised forms)
 # ---------------------------------------------------------------------------
-TARGET_COLUMNS: dict[str, list[str]] = {
+DEFAULT_COLUMNS: dict[str, list[str]] = {
     "lastname": ["lastname", "last name", "last_name", "surname"],
     "firstname": ["firstname", "first name", "first_name", "given name"],
     "middlename": ["middlename", "middle name", "middle_name", "mi", "m.i."],
     "extension": ["extension", "ext", "ext.", "name extension", "suffix"],
     "gender": ["gender", "sex"],
 }
+
+# Module-level alias kept so existing tests referencing TARGET_COLUMNS still work
+TARGET_COLUMNS = DEFAULT_COLUMNS
 
 
 @dataclass
@@ -62,7 +65,7 @@ def _normalise(text: str | None) -> str:
     return " ".join(str(text).lower().split())
 
 
-def _match_column(header: str) -> str | None:
+def _match_column(header: str, columns: dict[str, list[str]] | None = None) -> str | None:
     """
     Try to match a table header cell to one of our target columns.
 
@@ -71,21 +74,22 @@ def _match_column(header: str) -> str | None:
     h = _normalise(header)
     if not h:
         return None
-    for canonical, variants in TARGET_COLUMNS.items():
+    target = columns or DEFAULT_COLUMNS
+    for canonical, variants in target.items():
         for v in variants:
             if v in h or h in v:
                 return canonical
     return None
 
 
-def _build_column_map(headers: list[str | None]) -> dict[int, str]:
+def _build_column_map(headers: list[str | None], columns: dict[str, list[str]] | None = None) -> dict[int, str]:
     """
     Given a list of raw header strings from a PDF table row,
     return a mapping of column-index → canonical field name.
     """
     col_map: dict[int, str] = {}
     for idx, raw in enumerate(headers):
-        match = _match_column(raw if raw else "")
+        match = _match_column(raw if raw else "", columns)
         if match and match not in col_map.values():
             col_map[idx] = match
     return col_map
@@ -104,12 +108,18 @@ def _row_to_student(row: list[str | None], col_map: dict[int, str]) -> StudentRe
 # Public API
 # ---------------------------------------------------------------------------
 
-def extract_from_pdf(file_path: str | Path) -> ExtractionResult:
+def extract_from_pdf(
+    file_path: str | Path,
+    columns: dict[str, list[str]] | None = None,
+) -> ExtractionResult:
     """
     Extract student attendance records from a single PDF file.
 
     Args:
         file_path: Path to the PDF file.
+        columns: Optional custom column mapping overriding DEFAULT_COLUMNS.
+                 Keys are canonical names (lastname, firstname, …), values
+                 are lists of header text variants to match against.
 
     Returns:
         ExtractionResult containing extracted students and any errors.
@@ -144,11 +154,11 @@ def extract_from_pdf(file_path: str | Path) -> ExtractionResult:
 
                     # First row of the table is treated as headers
                     if col_map is None:
-                        col_map = _build_column_map(table[0])
+                        col_map = _build_column_map(table[0], columns)
                         if not col_map:
                             # Try second row in case first row is a title
                             if len(table) > 2:
-                                col_map = _build_column_map(table[1])
+                                col_map = _build_column_map(table[1], columns)
                                 if col_map:
                                     # Data starts from row index 2
                                     data_rows = table[2:]
@@ -161,7 +171,7 @@ def extract_from_pdf(file_path: str | Path) -> ExtractionResult:
                     else:
                         # Subsequent tables on other pages — skip header row
                         # Check if first row looks like headers again
-                        test_map = _build_column_map(table[0])
+                        test_map = _build_column_map(table[0], columns)
                         if test_map and len(test_map) >= 2:
                             data_rows = table[1:]
                         else:
@@ -183,7 +193,10 @@ def extract_from_pdf(file_path: str | Path) -> ExtractionResult:
     return result
 
 
-def extract_batch(file_paths: list[str | Path]) -> list[ExtractionResult]:
+def extract_batch(
+    file_paths: list[str | Path],
+    columns: dict[str, list[str]] | None = None,
+) -> list[ExtractionResult]:
     """
     Extract student records from multiple PDF files in parallel.
 
@@ -192,17 +205,21 @@ def extract_batch(file_paths: list[str | Path]) -> list[ExtractionResult]:
 
     Args:
         file_paths: List of paths to PDF files.
+        columns: Optional custom column mapping (forwarded to extract_from_pdf).
 
     Returns:
         List of ExtractionResult, one per file (order preserved).
     """
     if len(file_paths) <= 1:
-        return [extract_from_pdf(fp) for fp in file_paths]
+        return [extract_from_pdf(fp, columns) for fp in file_paths]
 
     # Cap workers to file count or CPU count (whichever is smaller)
     max_workers = min(len(file_paths), os.cpu_count() or 4)
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(extract_from_pdf, file_paths))
+        # functools.partial would work, but a simple wrapper is clearer
+        import functools
+        _extract = functools.partial(extract_from_pdf, columns=columns)
+        results = list(executor.map(_extract, file_paths))
     return results
 
 
