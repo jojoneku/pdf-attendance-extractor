@@ -107,6 +107,31 @@ class TestRowToStudent:
         assert student.middlename == "Santos"
         assert student.extension == ""
         assert student.gender == "M"
+        assert student.gender_source == "pdf"
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("Male", "M"), ("male", "M"), ("m", "M"), ("Boy", "M"),
+        ("Female", "F"), ("F", "F"), ("girl", "F"), ("Other", "Other"),
+    ])
+    def test_gender_normalised(self, raw, expected):
+        student = _row_to_student(["Cruz", "Juan", raw], {0: "lastname", 1: "firstname", 2: "gender"})
+        assert student.gender == expected
+        assert student.gender_source == "pdf"
+        assert student.gender_confidence == 1.0
+
+    def test_blank_gender_inferred_from_firstname(self):
+        student = _row_to_student(["Cruz", "Maria Luisa"], {0: "lastname", 1: "firstname", 2: "gender"})
+        assert student.gender == "F"
+        assert student.gender_source == "inferred"
+        assert 0.6 <= student.gender_confidence <= 1.0
+
+    def test_pdf_gender_not_overridden_by_inference(self):
+        student = _row_to_student(["Cruz", "Maria", "M"], {0: "lastname", 1: "firstname", 2: "gender"})
+        assert (student.gender, student.gender_source) == ("M", "pdf")
+
+    def test_uninferable_gender_stays_blank(self):
+        student = _row_to_student(["Cruz", ""], {0: "lastname", 1: "firstname"})
+        assert (student.gender, student.gender_source, student.gender_confidence) == ("", "", 0.0)
 
     def test_none_values(self):
         col_map = {0: "lastname", 1: "firstname"}
@@ -250,6 +275,14 @@ class TestBatchAndAggregate:
         assert aggregated[0]["source_file"] == "file1.pdf"
         assert aggregated[1]["lastname"] == "C"
         assert aggregated[2]["source_file"] == "file2.pdf"
+
+    def test_aggregate_includes_gender_provenance(self):
+        results = [ExtractionResult(
+            source_file="f.pdf",
+            students=[StudentRecord(lastname="A", firstname="B", gender="F", gender_source="inferred", gender_confidence=0.9)],
+        )]
+        row = aggregate_students(results)[0]
+        assert (row["gender_source"], row["gender_confidence"]) == ("inferred", 0.9)
 
     def test_aggregate_empty(self):
         assert aggregate_students([]) == []

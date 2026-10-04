@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pdfplumber
 
+from gender import resolve_gender
+
 # ---------------------------------------------------------------------------
 # Target columns we want to extract (lowercase normalised forms)
 # ---------------------------------------------------------------------------
@@ -39,6 +41,8 @@ class StudentRecord:
     middlename: str = ""
     extension: str = ""
     gender: str = ""
+    gender_source: str = ""  # "pdf" | "inferred" | "" (unknown)
+    gender_confidence: float = 0.0
 
     def is_empty(self) -> bool:
         """Return True if all fields are blank."""
@@ -101,7 +105,12 @@ def _row_to_student(row: list[str | None], col_map: dict[int, str]) -> StudentRe
     for idx, canonical in col_map.items():
         val = row[idx] if idx < len(row) else None
         fields[canonical] = str(val).strip() if val else ""
-    return StudentRecord(**fields)
+    student = StudentRecord(**fields)
+    # Normalise the PDF value, or infer it from the first name when blank
+    student.gender, student.gender_source, student.gender_confidence = resolve_gender(
+        student.gender, student.firstname, student.extension
+    )
+    return student
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +242,7 @@ def aggregate_students(results: list[ExtractionResult]) -> list[dict]:
 
     Returns:
         List of dicts with keys: lastname, firstname, middlename,
-        extension, gender, source_file.
+        extension, gender, gender_source, gender_confidence, source_file.
     """
     aggregated: list[dict] = []
     for result in results:
@@ -244,6 +253,8 @@ def aggregate_students(results: list[ExtractionResult]) -> list[dict]:
                 "middlename": student.middlename,
                 "extension": student.extension,
                 "gender": student.gender,
+                "gender_source": student.gender_source,
+                "gender_confidence": student.gender_confidence,
                 "source_file": result.source_file,
             })
     return aggregated

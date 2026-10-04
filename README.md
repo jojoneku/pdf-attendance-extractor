@@ -19,13 +19,19 @@ A local web tool that extracts student attendance data from batch PDF files and 
 |------------------|-------------------------------|
 | Full Name        | Auto-concatenated from PDF    |
 | Email            | Optional (user input)         |
-| Gender           | Extracted from PDF            |
+| Gender           | From PDF, else inferred (see below) |
 | Beneficiary      | Dropdown: Youth / Educator / Parent |
 | Age Range        | Dropdown: 15-20 / 21-25 / 26-30 / 31-35 / Over 35 |
 | Affiliation Type | Dropdown: School / Community / Workplace / University |
 | Affiliation Name | Free text input               |
 
 All columns are always present in the output, even when left blank.
+
+## Gender Inference
+
+Gender values from the PDF are normalised to `M` / `F` (Male/Boy → `M`, Female/Girl → `F`; anything else is kept as-is). When the PDF has no gender value, it is inferred from the first given name (and suffix such as Jr./Sr.) by `backend/gender.py`, using a name lexicon built from a labelled Bohol corpus with `backend/gender_train.py` (`python -m backend.gender_train build|cv <labelled.xlsx>`). Cross-validated accuracy is ~97%, and ~96% on an out-of-domain HNU sample of 1,375 records. Names with no confident answer are left blank.
+
+Inferred values are flagged: each record carries `gender_source` (`pdf`, `inferred`, or empty) and `gender_confidence`, and the preview table shows inferred values in italics with a "(guess)" marker. Exports contain the gender value only, not the flag, so review guesses before exporting.
 
 ## Quick Start
 

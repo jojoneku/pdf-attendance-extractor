@@ -94,6 +94,8 @@ def _to_response_model(result: ExtractorResult) -> FileExtractionResult:
                 middlename=s.middlename,
                 extension=s.extension,
                 gender=s.gender,
+                gender_source=s.gender_source,
+                gender_confidence=s.gender_confidence,
             )
             for s in result.students
         ],

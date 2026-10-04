@@ -70,6 +70,21 @@ class TestUploadEndpoint:
         assert body["data"][0]["students"][0]["lastname"] == "Cruz"
 
     @patch("main.extract_batch")
+    def test_gender_provenance_in_response(self, mock_extract):
+        from extractor import ExtractionResult, StudentRecord
+
+        mock_extract.return_value = [
+            ExtractionResult(
+                source_file="test.pdf",
+                students=[StudentRecord(lastname="Cruz", firstname="Ana", gender="F", gender_source="inferred", gender_confidence=0.93)],
+            )
+        ]
+        res = client.post("/api/upload", files=[("files", make_fake_pdf("test.pdf"))])
+        student = res.json()["data"][0]["students"][0]
+        assert student["gender_source"] == "inferred"
+        assert student["gender_confidence"] == 0.93
+
+    @patch("main.extract_batch")
     def test_multiple_files(self, mock_extract):
         from extractor import ExtractionResult, StudentRecord
 
