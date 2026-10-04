@@ -285,7 +285,7 @@ function renderNextPage() {
         tr.innerHTML = `
             <td>${i + 1}</td>
             <td>${esc(s.full_name)}</td>
-            <td>${esc(s.gender)}</td>
+            <td>${genderCell(s)}</td>
             <td>${esc(s.source_file)}</td>
         `;
         fragment.appendChild(tr);
@@ -311,6 +311,13 @@ function updatePaginationInfo() {
     if (loadAllBtn) {
         loadAllBtn.style.display = (displayedCount < list.length && list.length <= 50000) ? "inline-flex" : "none";
     }
+}
+
+// Inferred genders are shown in italics with a "(guess)" marker
+function genderCell(s) {
+    if (s.gender_source !== "inferred") return esc(s.gender);
+    const pct = Math.round((s.gender_confidence || 0) * 100);
+    return `<em title="Inferred from first name (${pct}% confidence)">${esc(s.gender)} (guess)</em>`;
 }
 
 function esc(str) {
@@ -468,7 +475,7 @@ document.getElementById("loadAllBtn").addEventListener("click", () => {
             tr.innerHTML = `
                 <td>${i + 1}</td>
                 <td>${esc(s.full_name)}</td>
-                <td>${esc(s.gender)}</td>
+                <td>${genderCell(s)}</td>
                 <td>${esc(s.source_file)}</td>
             `;
             fragment.appendChild(tr);

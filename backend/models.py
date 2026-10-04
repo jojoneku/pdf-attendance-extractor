@@ -15,6 +15,8 @@ class StudentRecord(BaseModel):
     middlename: str = ""
     extension: str = ""
     gender: str = ""
+    gender_source: str = ""  # "pdf" | "inferred" | ""
+    gender_confidence: float = 0.0
 
 
 class FileExtractionResult(BaseModel):
